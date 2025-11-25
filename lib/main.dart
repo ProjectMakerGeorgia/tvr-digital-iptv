@@ -1,44 +1,60 @@
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-
 import 'auth_service.dart';
+import 'features/login/desktop/desktop_login_screen.dart';
+import 'features/login/mobile/mobile_login_screen.dart';
+import 'features/responsive/responsive_layout.dart'; // Corrected import path
 import 'home_screen.dart';
-import 'login_screen.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async { // Make main async
+  WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter is ready
+  final authService = AuthService();
+  await authService.tryAutoLogin(); // Wait for auto-login to complete
+
+  runApp(MyApp(authService: authService)); // Pass the service to the app
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final AuthService authService;
+  const MyApp({super.key, required this.authService});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthService(),
-      child: Consumer<AuthService>(
-        builder: (context, authService, _) {
-          return Shortcuts(
-            shortcuts: <LogicalKeySet, Intent>{
-              LogicalKeySet(LogicalKeyboardKey.select): const ActivateIntent(),
-              LogicalKeySet(LogicalKeyboardKey.arrowUp): const DirectionalFocusIntent(TraversalDirection.up),
-              LogicalKeySet(LogicalKeyboardKey.arrowDown): const DirectionalFocusIntent(TraversalDirection.down),
-              LogicalKeySet(LogicalKeyboardKey.arrowLeft): const DirectionalFocusIntent(TraversalDirection.left),
-              LogicalKeySet(LogicalKeyboardKey.arrowRight): const DirectionalFocusIntent(TraversalDirection.right),
-            },
-            child: MaterialApp(
-              title: 'TVR DIGITAL IPTV',
-              theme: ThemeData(
-                brightness: Brightness.dark,
-                fontFamily: 'FullAppFont',
-              ),
-              home: authService.isAuthenticated ? const HomeScreen() : const LoginScreen(),
-            ),
-          );
-        },
+    return ChangeNotifierProvider.value( // Use .value constructor
+      value: authService,
+      child: MaterialApp(
+        title: 'TVR Digital',
+        theme: ThemeData(
+            primarySwatch: Colors.deepPurple,
+            visualDensity: VisualDensity.adaptivePlatformDensity,
+            fontFamily: 'FullAppFont', // Default font for the entire app
+            appBarTheme: const AppBarTheme(
+              titleTextStyle: TextStyle(fontFamily: 'AppBarFont', fontSize: 20),
+            )),
+        home: const AuthWrapper(),
+        debugShowCheckedModeBanner: false,
       ),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthService>(
+      builder: (context, authService, child) {
+        if (authService.isLoggedIn) {
+          return const HomeScreen();
+        } else {
+          // The ResponsiveLayout will handle the platform detection
+          return const ResponsiveLayout(
+            desktopBody: DesktopLoginScreen(),
+            mobileBody: MobileLoginScreen(),
+          );
+        }
+      },
     );
   }
 }

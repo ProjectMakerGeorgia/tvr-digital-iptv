@@ -1,67 +1,93 @@
-
 import 'dart:convert';
-import 'dart:developer';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // For kDebugMode
 import 'package:http/http.dart' as http;
-import './user_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'user_model.dart';
+import 'subscription_model.dart';
 
 class AuthService with ChangeNotifier {
   UserModel? _user;
-  bool _isLoading = false;
-  String? _errorMessage;
-
   UserModel? get user => _user;
-  bool get isAuthenticated => _user != null;
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
+  bool get isLoggedIn => _user != null;
 
-  Future<bool> login(String username, String password) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+  final String _baseUrl = 'tvr.digital';
 
-    // action პარამეტრი უნდა გადავცეთ URL-ში
-    final url = Uri.parse('https://tvr.digital/api/auth.php?action=login');
-
+  Future<String?> login(String username, String password) async {
+    final url = Uri.https(_baseUrl, '/api/auth.php', {'action': 'login'});
     try {
-      // body-ში ვაგზავნით მხოლოდ username-ს და password-ს, JSON ფორმატში
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'username': username,
-          'password': password,
-        }),
+        body: jsonEncode({'username': username, 'password': password}),
       );
-      log('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        
-        // PHP-დან მოდის 'success' (boolean), და არა 'status' (string)
+        final data = jsonDecode(response.body);
         if (data['success'] == true) {
-          // PHP-დან მოდის მომხმარებლის მონაცემები პირდაპირ, და არა 'user' ობიექტში
           _user = UserModel.fromJson(data);
-          _isLoading = false;
-          notifyListeners();
-          return true;
+          notifyListeners(); // Notify with basic info
+
+          await _fetchAndMergeUserDetails(_user!.id.toString());
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('userId', _user!.id.toString());
+
+          return null;
         } else {
-          _errorMessage = data['message'] ?? 'Unknown error';
+          return data['message'] ?? 'Login failed.';
         }
       } else {
-        _errorMessage = 'Server error: ${response.statusCode}';
+        return 'Server error: ${response.statusCode}';
       }
     } catch (e) {
-      _errorMessage = 'An error occurred: $e';
+      return 'An error occurred: $e';
     }
-
-    _isLoading = false;
-    notifyListeners();
-    return false;
   }
 
-  void logout() {
+  Future<void> _fetchAndMergeUserDetails(String userId) async {
+    final url = Uri.https(_baseUrl, '/api/user_info.php', {'user_id': userId});
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          if (_user != null) {
+            _user = _user!.copyWith(
+              firstName: data['data']['firstName'],
+              lastName: data['data']['lastName'],
+              email: data['data']['email'],
+              phone: data['data']['phone'],
+              balance: (data['data']['balance'] as num).toDouble(),
+              subscription: data['data']['subscription'] != null
+                  ? SubscriptionModel.fromJson(data['data']['subscription'])
+                  : null,
+            );
+          } else {
+            // For auto-login
+            _user = UserModel.fromJson(data['data']);
+          }
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Could not fetch user details: $e");
+      }
+    }
+  }
+
+  Future<void> logout() async {
     _user = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('userId');
     notifyListeners();
+  }
+
+  Future<void> tryAutoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('userId');
+    if (userId != null) {
+      await _fetchAndMergeUserDetails(userId);
+    }
   }
 }
