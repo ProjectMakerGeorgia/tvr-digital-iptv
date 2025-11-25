@@ -13,12 +13,12 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('მთავარი', style: TextStyle(fontFamily: 'AppBarFont')),
+        title: const Text('მთავარი', style: TextStyle(fontFamily: 'AppBarFont', color: Colors.white)),
         backgroundColor: Colors.transparent, // Making AppBar transparent
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.person),
+            icon: const Icon(Icons.person, color: Colors.white), // Changed icon color
             tooltip: 'პროფილი',
             onPressed: () {
               Navigator.push(
@@ -28,13 +28,20 @@ class HomeScreen extends StatelessWidget {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.white), // Changed icon color
             tooltip: 'გასვლა',
             onPressed: () {
               authService.logout();
             },
           )
         ],
+        bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1.0),
+        child: Divider(
+          color: const Color.fromRGBO(255, 255, 255, 0.5), // Replaced withOpacity
+          height: 1.0,
+        ),
+      ),
       ),
       extendBodyBehindAppBar: true, // Extend body behind appbar
       body: Container(

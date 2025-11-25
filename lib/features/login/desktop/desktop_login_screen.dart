@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Import for KeyEvent
 import 'package:provider/provider.dart';
 import '../../../auth_service.dart';
 
@@ -18,7 +19,6 @@ class _DesktopLoginScreenState extends State<DesktopLoginScreen> {
   final FocusNode _loginButtonFocusNode = FocusNode();
   bool _obscurePassword = true;
 
-  // Local state for loading and error messages
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -39,7 +39,6 @@ class _DesktopLoginScreenState extends State<DesktopLoginScreen> {
   }
 
   Future<void> _login() async {
-    // Don't do anything if already loading
     if (_isLoading) return;
 
     setState(() {
@@ -53,7 +52,6 @@ class _DesktopLoginScreenState extends State<DesktopLoginScreen> {
       _passwordController.text,
     );
 
-    // Check if the widget is still in the tree
     if (!mounted) return;
 
     setState(() {
@@ -62,6 +60,31 @@ class _DesktopLoginScreenState extends State<DesktopLoginScreen> {
         _errorMessage = error;
       }
     });
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) { // Updated to KeyEvent
+    if (event is KeyDownEvent) { // Updated to KeyDownEvent
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        if (_usernameFocusNode.hasFocus) {
+          _passwordFocusNode.requestFocus();
+        } else if (_passwordFocusNode.hasFocus) {
+          _loginButtonFocusNode.requestFocus();
+        } else if (_loginButtonFocusNode.hasFocus) {
+          _usernameFocusNode.requestFocus(); // Loop back to the top
+        }
+        return KeyEventResult.handled;
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        if (_loginButtonFocusNode.hasFocus) {
+          _passwordFocusNode.requestFocus();
+        } else if (_passwordFocusNode.hasFocus) {
+          _usernameFocusNode.requestFocus();
+        } else if (_usernameFocusNode.hasFocus) {
+          _loginButtonFocusNode.requestFocus(); // Loop back to the bottom
+        }
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
   }
 
   @override
@@ -81,15 +104,15 @@ class _DesktopLoginScreenState extends State<DesktopLoginScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Left side - Welcome Message and Image
+                  // Left side - Welcome Message
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.all(48.0),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
+                        children: const [
+                          Text(
                             'TVR Digital',
                             style: TextStyle(
                               fontSize: 48,
@@ -98,8 +121,8 @@ class _DesktopLoginScreenState extends State<DesktopLoginScreen> {
                               fontFamily: 'FullAppFont',
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          const Text(
+                          SizedBox(height: 16),
+                          Text(
                             'მოგესალმებით! გთხოვთ, გაიაროთ ავტორიზაცია.',
                             style: TextStyle(
                               fontSize: 20,
@@ -107,13 +130,6 @@ class _DesktopLoginScreenState extends State<DesktopLoginScreen> {
                               fontFamily: 'FullAppFont',
                             ),
                           ),
-                          const SizedBox(height: 40),
-                          Center(
-                            child: Image.asset(
-                              'assets/images/logo.png', // Corrected image path
-                              height: 200, // Reduced logo size
-                            ),
-                          )
                         ],
                       ),
                     ),
@@ -122,93 +138,44 @@ class _DesktopLoginScreenState extends State<DesktopLoginScreen> {
                   // Right side - Login Form
                   Expanded(
                     child: Center(
-                      child: Container(
-                        width: 400,
-                        padding: const EdgeInsets.all(32.0),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withAlpha(200),
-                          borderRadius: BorderRadius.circular(16.0),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withAlpha(25),
-                              blurRadius: 20,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'ავტორიზაცია',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'AppBarFont',
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            // Username Field
-                            TextFormField(
-                              controller: _usernameController,
-                              focusNode: _usernameFocusNode,
-                              decoration: InputDecoration(
-                                labelText: 'მომხმარებლის სახელი',
-                                prefixIcon: const Icon(Icons.person_outline),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8.0),
+                      child: Stack(
+                        clipBehavior: Clip.none, // Allow logo to overflow
+                        alignment: Alignment.topCenter,
+                        children: [
+                          // The Card
+                          Padding(
+                            padding: const EdgeInsets.only(top: 50), // Space for top half of logo
+                            child: FocusScope(
+                              child: Focus(
+                                onKeyEvent: _handleKeyEvent, // Updated to onKeyEvent
+                                child: Container(
+                                  width: 400,
+                                  padding: const EdgeInsets.fromLTRB(32, 80, 32, 32), // More top padding inside
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withAlpha(200),
+                                    borderRadius: BorderRadius.circular(16.0),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withAlpha(25),
+                                        blurRadius: 20,
+                                        spreadRadius: 5,
+                                      ),
+                                    ],
+                                  ),
+                                  child: _buildLoginForm(),
                                 ),
                               ),
-                              onFieldSubmitted: (_) => FocusScope.of(context).requestFocus(_passwordFocusNode),
                             ),
-                            const SizedBox(height: 16),
-                            // Password Field
-                            TextFormField(
-                              controller: _passwordController,
-                              focusNode: _passwordFocusNode,
-                              obscureText: _obscurePassword,
-                              decoration: InputDecoration(
-                                labelText: 'პაროლი',
-                                prefixIcon: const Icon(Icons.lock_outline),
-                                suffixIcon: IconButton(
-                                  icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                                  onPressed: _togglePasswordVisibility,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8.0),
-                                ),
-                              ),
-                              onFieldSubmitted: (_) => _login(),
+                          ),
+                          // The Logo on top
+                          Positioned(
+                            top: 0,
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              height: 100,
                             ),
-                            const SizedBox(height: 24),
-                            // Loading indicator and Error message
-                            if (_isLoading)
-                              const CircularProgressIndicator()
-                            else if (_errorMessage != null)
-                              Text(
-                                _errorMessage!,
-                                style: const TextStyle(color: Colors.red, fontSize: 14),
-                                textAlign: TextAlign.center,
-                              ),
-                            const SizedBox(height: 16),
-                            // Login Button
-                            ElevatedButton(
-                              focusNode: _loginButtonFocusNode,
-                              onPressed: _isLoading ? null : _login,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.deepPurple,
-                                padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8.0),
-                                ),
-                              ),
-                              child: const Text(
-                                'შესვლა',
-                                style: TextStyle(fontSize: 16, color: Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -218,6 +185,83 @@ class _DesktopLoginScreenState extends State<DesktopLoginScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildLoginForm() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'ავტორიზაცია',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'AppBarFont',
+          ),
+        ),
+        const SizedBox(height: 24),
+        // Username Field
+        TextFormField(
+          controller: _usernameController,
+          focusNode: _usernameFocusNode,
+          autofocus: true, // Start focus here
+          decoration: InputDecoration(
+            labelText: 'მომხმარებლის სახელი',
+            prefixIcon: const Icon(Icons.person_outline),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+          ),
+          onFieldSubmitted: (_) => _passwordFocusNode.requestFocus(),
+        ),
+        const SizedBox(height: 16),
+        // Password Field
+        TextFormField(
+          controller: _passwordController,
+          focusNode: _passwordFocusNode,
+          obscureText: _obscurePassword,
+          decoration: InputDecoration(
+            labelText: 'პაროლი',
+            prefixIcon: const Icon(Icons.lock_outline),
+            suffixIcon: IconButton(
+              icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+              onPressed: _togglePasswordVisibility,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+          ),
+          onFieldSubmitted: (_) => _login(),
+        ),
+        const SizedBox(height: 24),
+        // Loading indicator and Error message
+        if (_isLoading)
+          const CircularProgressIndicator()
+        else if (_errorMessage != null)
+          Text(
+            _errorMessage!,
+            style: const TextStyle(color: Colors.red, fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+        const SizedBox(height: 16),
+        // Login Button
+        ElevatedButton(
+          focusNode: _loginButtonFocusNode,
+          onPressed: _isLoading ? null : _login,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.deepPurple,
+            padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+          ),
+          child: const Text(
+            'შესვლა',
+            style: TextStyle(fontSize: 16, color: Colors.white),
+          ),
+        ),
+      ],
     );
   }
 }
