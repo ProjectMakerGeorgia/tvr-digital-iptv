@@ -44,7 +44,6 @@ class UserModel {
       playlistUrl: json['playlist_url'],
       token: json['token'],
       balance: double.parse(json['balance'].toString()),
-      // These fields might not be in the second API call, so handle null
       userstatus: json['userstatus'] != null ? int.parse(json['userstatus'].toString()) : 1,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : DateTime.now(),
@@ -53,7 +52,6 @@ class UserModel {
     );
   }
 
-  // Method to update user with more details
   UserModel copyWith({
     String? firstName,
     String? lastName,
@@ -61,6 +59,7 @@ class UserModel {
     String? phone,
     double? balance,
     SubscriptionModel? subscription,
+    String? token,
   }) {
     return UserModel(
       id: id,
@@ -71,9 +70,8 @@ class UserModel {
       phone: phone ?? this.phone,
       balance: balance ?? this.balance,
       subscription: subscription ?? this.subscription,
-      // Keep original values for these
+      token: token ?? this.token,
       playlistUrl: playlistUrl,
-      token: token,
       userstatus: userstatus,
       createdAt: createdAt,
       updatedAt: updatedAt,
