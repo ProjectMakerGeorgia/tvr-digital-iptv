@@ -205,14 +205,20 @@ class _DesktopLoginScreenState extends State<DesktopLoginScreen> {
                           ),
                           onPressed: () async {
                             if (_formKey.currentState!.validate()) {
-                              await _saveUserCredentials();
                               final authService = Provider.of<AuthService>(context, listen: false);
+                              final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                              await _saveUserCredentials();
+
                               final success = await authService.login(
                                 _usernameController.text,
                                 _passwordController.text,
                               );
-                              if (mounted && !success) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+
+                              if (!mounted) return;
+
+                              if (!success) {
+                                scaffoldMessenger.showSnackBar(
                                   SnackBar(
                                     content: Text(authService.errorMessage ?? 'ავტორიზაცია ვერ მოხერხდა'),
                                     backgroundColor: Colors.red,
