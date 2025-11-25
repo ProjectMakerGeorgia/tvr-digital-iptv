@@ -20,14 +20,15 @@ class AuthService with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    final url = Uri.parse('https://tvr.digital/api/auth.php');
+    // action პარამეტრი უნდა გადავცეთ URL-ში
+    final url = Uri.parse('https://tvr.digital/api/auth.php?action=login');
 
     try {
+      // body-ში ვაგზავნით მხოლოდ username-ს და password-ს, JSON ფორმატში
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'action': 'login',
           'username': username,
           'password': password,
         }),
@@ -36,8 +37,11 @@ class AuthService with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['status'] == 'success') {
-          _user = UserModel.fromJson(data['user']);
+        
+        // PHP-დან მოდის 'success' (boolean), და არა 'status' (string)
+        if (data['success'] == true) {
+          // PHP-დან მოდის მომხმარებლის მონაცემები პირდაპირ, და არა 'user' ობიექტში
+          _user = UserModel.fromJson(data);
           _isLoading = false;
           notifyListeners();
           return true;
