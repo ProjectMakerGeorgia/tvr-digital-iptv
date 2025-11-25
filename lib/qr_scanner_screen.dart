@@ -93,7 +93,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           ),
           if (_isProcessing)
             Container(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withAlpha(128),
               child: const Center(
                 child: CircularProgressIndicator(),
               ),

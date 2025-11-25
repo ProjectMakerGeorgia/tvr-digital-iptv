@@ -22,4 +22,14 @@ class SubscriptionModel {
       status: json['status'],
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'packageName': packageName,
+      'startDate': startDate.toIso8601String(),
+      'endDate': endDate.toIso8601String(),
+      'price': price,
+      'status': status,
+    };
+  }
 }

@@ -11,14 +11,10 @@ class MobileLoginScreen extends StatefulWidget {
 }
 
 class _MobileLoginScreenState extends State<MobileLoginScreen> {
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final FocusNode _usernameFocusNode = FocusNode();
-  final FocusNode _passwordFocusNode = FocusNode();
-  final FocusNode _loginButtonFocusNode = FocusNode();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
-
-  // Local state for loading and error messages
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -26,9 +22,6 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
-    _usernameFocusNode.dispose();
-    _passwordFocusNode.dispose();
-    _loginButtonFocusNode.dispose();
     super.dispose();
   }
 
@@ -39,65 +32,137 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
   }
 
   Future<void> _login() async {
+    // Hide keyboard
+    FocusScope.of(context).unfocus();
+    
+    // Clear previous server error messages before validating
+    setState(() => _errorMessage = null);
+
+    // Validate form
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      // Check if both fields are empty for a general message, though validators handle specifics
+      if (_usernameController.text.trim().isEmpty && _passwordController.text.trim().isEmpty) {
+          // The form validator will show individual messages, but we can set a general one if needed
+      } 
+      return;
+    }
+
     if (_isLoading) return;
 
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
 
     final authService = Provider.of<AuthService>(context, listen: false);
     final error = await authService.login(
-      _usernameController.text,
-      _passwordController.text,
+      _usernameController.text.trim(),
+      _passwordController.text.trim(),
     );
 
-    if (!mounted) return;
-
-    setState(() {
-      _isLoading = false;
-      if (error != null) {
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
         _errorMessage = error;
-      }
-    });
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage("assets/images/background.png"), // Background image
+            image: AssetImage("assets/images/background.png"),
             fit: BoxFit.cover,
           ),
         ),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5), // Blur effect
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset(
-                      'assets/images/logo.png', // Added logo
-                      height: 150, // Logo size
-                    ),
-                    const SizedBox(height: 30),
-                    const Text(
-                      'მოგესალმებით! გთხოვთ, გაიაროთ ავტორიზაცია.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.white70,
-                        fontFamily: 'FullAppFont',
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: SizedBox(
+                height: screenHeight - (MediaQuery.of(context).padding.top + MediaQuery.of(context).padding.bottom),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Spacer(flex: 2),
+                      Image.asset('assets/images/logo.png', height: 120),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'TVR Digital',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                           fontFamily: 'FullAppFont',
+                          shadows: [Shadow(blurRadius: 8.0, color: Colors.black, offset: Offset(3.0, 3.0))],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 50),
-                    _buildLoginForm(context),
-                  ],
+                      const Spacer(flex: 1),
+                      TextFormField(
+                        controller: _usernameController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _buildInputDecoration('მომხმარებლის სახელი', Icons.person_outline),
+                        validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                                return 'ჩაწერეთ მომხმარებლის სახელი';
+                            }
+                            return null;
+                        }
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                         style: const TextStyle(color: Colors.white),
+                        decoration: _buildInputDecoration('პაროლი', Icons.lock_outline).copyWith(
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                              color: Colors.white70,
+                            ),
+                            onPressed: _togglePasswordVisibility,
+                          ),
+                        ),
+                        validator: (value) {
+                             if (value == null || value.trim().isEmpty) {
+                                return 'ჩაწერეთ პაროლი';
+                            }
+                            return null;
+                        }
+                      ),
+                      const SizedBox(height: 24),
+                       if (_errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10.0),
+                          child: Text(
+                            _errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 14, shadows: [Shadow(blurRadius: 2.0, color: Colors.black, offset: Offset(1.0, 1.0))]),
+                          ),
+                        ),
+                      _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : ElevatedButton(
+                              onPressed: _login,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.deepPurple,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('შესვლა', style: TextStyle(fontSize: 18, color: Colors.white)),
+                            ),
+                      const Spacer(flex: 3),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -107,92 +172,28 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
     );
   }
 
-  Widget _buildLoginForm(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24.0),
-      decoration: BoxDecoration(
-        color: Colors.black.withAlpha(120), // Semi-transparent card color
-        borderRadius: BorderRadius.circular(20.0),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Username Field
-          TextFormField(
-            controller: _usernameController,
-            focusNode: _usernameFocusNode,
-            keyboardType: TextInputType.text,
-            style: const TextStyle(color: Colors.white),
-            decoration: _inputDecoration('მომხმარებლის სახელი', Icons.person_outline),
-            onFieldSubmitted: (_) => FocusScope.of(context).requestFocus(_passwordFocusNode),
-          ),
-          const SizedBox(height: 20),
-          // Password Field
-          TextFormField(
-            controller: _passwordController,
-            focusNode: _passwordFocusNode,
-            obscureText: _obscurePassword,
-            style: const TextStyle(color: Colors.white),
-            decoration: _inputDecoration('პაროლი', Icons.lock_outline).copyWith(
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.white70,
-                ),
-                onPressed: _togglePasswordVisibility,
-              ),
-            ),
-            onFieldSubmitted: (_) => _login(),
-          ),
-          const SizedBox(height: 30),
-          // Loading or Error
-          if (_isLoading)
-            const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white))
-          else if (_errorMessage != null)
-            Text(
-              _errorMessage!,
-              style: const TextStyle(color: Colors.yellowAccent, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-          const SizedBox(height: 20),
-          // Login Button
-          ElevatedButton(
-            focusNode: _loginButtonFocusNode,
-            onPressed: _isLoading ? null : _login,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.deepPurple,
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.0)),
-              minimumSize: const Size(double.infinity, 50), // full width
-            ),
-            child: const Text('შესვლა', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration(String label, IconData icon) {
+  InputDecoration _buildInputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white70),
       prefixIcon: Icon(icon, color: Colors.white70),
+      filled: true,
+      fillColor: Colors.black.withAlpha(77),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(30.0),
-        borderSide: const BorderSide(color: Colors.white70),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.white.withAlpha(128)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(30.0),
-        borderSide: const BorderSide(color: Colors.white),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.deepPurple),
       ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(30.0),
-        borderSide: const BorderSide(color: Colors.yellowAccent),
+       errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(30.0),
-        borderSide: const BorderSide(color: Colors.yellowAccent, width: 2),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 2),
       ),
     );
   }

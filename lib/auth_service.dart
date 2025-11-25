@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart'; // For kDebugMode
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'user_model.dart';
@@ -10,7 +10,21 @@ class AuthService with ChangeNotifier {
   UserModel? get user => _user;
   bool get isLoggedIn => _user != null;
 
+  static const String _userPrefKey = 'userData';
   final String _baseUrl = 'tvr.digital';
+
+  // Unified method to set user data, save to prefs, and notify listeners
+  Future<void> _setUserAndCache(UserModel? user) async {
+    _user = user;
+    final prefs = await SharedPreferences.getInstance();
+    if (user != null) {
+      final userData = jsonEncode(user.toJson());
+      await prefs.setString(_userPrefKey, userData);
+    } else {
+      await prefs.remove(_userPrefKey);
+    }
+    notifyListeners();
+  }
 
   Future<String?> login(String username, String password) async {
     final url = Uri.https(_baseUrl, '/api/auth.php', {'action': 'login'});
@@ -24,15 +38,9 @@ class AuthService with ChangeNotifier {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
-          _user = UserModel.fromJson(data);
-          notifyListeners(); // Notify with basic info
-
-          await _fetchAndMergeUserDetails(_user!.id.toString());
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('userId', _user!.id.toString());
-          await prefs.setString('token', _user!.token ?? '');
-
+          final basicUser = UserModel.fromJson(data);
+          // Fetch full details and then set user
+          await _fetchAndMergeUserDetails(basicUser.id.toString(), basicUser);
           return null;
         } else {
           return data['message'] ?? 'Login failed.';
@@ -45,28 +53,34 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  Future<void> _fetchAndMergeUserDetails(String userId) async {
+  Future<void> _fetchAndMergeUserDetails(String userId, [UserModel? baseUser]) async {
     final url = Uri.https(_baseUrl, '/api/user_info.php', {'user_id': userId});
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {
-          if (_user != null) {
-            _user = _user!.copyWith(
-              firstName: data['data']['firstName'],
-              lastName: data['data']['lastName'],
-              email: data['data']['email'],
-              phone: data['data']['phone'],
-              balance: (data['data']['balance'] as num).toDouble(),
-              subscription: data['data']['subscription'] != null
-                  ? SubscriptionModel.fromJson(data['data']['subscription'])
-                  : null,
-            );
-          } else {
-            _user = UserModel.fromJson(data['data']);
-          }
-          notifyListeners();
+            final detailedData = data['data'];
+            // Use the base user if provided, otherwise create a new one
+            final userToUpdate = baseUser ?? _user;
+            
+            if (userToUpdate != null) {
+                 final updatedUser = userToUpdate.copyWith(
+                    firstName: detailedData['firstName'],
+                    lastName: detailedData['lastName'],
+                    email: detailedData['email'],
+                    phone: detailedData['phone'],
+                    balance: (detailedData['balance'] as num).toDouble(),
+                    subscription: detailedData['subscription'] != null
+                        ? SubscriptionModel.fromJson(detailedData['subscription'])
+                        : null,
+                );
+                await _setUserAndCache(updatedUser);
+            } else {
+                // This case might happen if auto-login only has userId
+                final newUser = UserModel.fromJson(detailedData);
+                await _setUserAndCache(newUser);
+            }
         }
       }
     } catch (e) {
@@ -77,54 +91,41 @@ class AuthService with ChangeNotifier {
   }
 
   Future<void> logout() async {
-    _user = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('userId');
-    await prefs.remove('token');
-    notifyListeners();
+    await _setUserAndCache(null);
   }
 
   Future<void> tryAutoLogin() async {
     final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('userId');
-    if (userId != null) {
-      await _fetchAndMergeUserDetails(userId);
-      // Also load the token if needed elsewhere
-      final token = prefs.getString('token');
-      if (_user != null && token != null) {
-        _user = _user!.copyWith(token: token);
-      }
+    final userDataString = prefs.getString(_userPrefKey);
+    if (userDataString != null) {
+      final userData = jsonDecode(userDataString);
+      _user = UserModel.fromJson(userData);
+      notifyListeners(); 
     }
   }
 
   Future<void> completeQrLogin(Map<String, dynamic> userData) async {
-    _user = UserModel.fromJson({'success': true, ...userData});
-    
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('userId', _user!.id.toString());
-    await prefs.setString('token', _user!.token ?? '');
-
-    await _fetchAndMergeUserDetails(_user!.id.toString()); // Fetch full details
-
-    notifyListeners();
+    final basicUser = UserModel.fromJson({'success': true, ...userData});
+    // After getting basic data from QR, fetch full details
+    await _fetchAndMergeUserDetails(basicUser.id.toString(), basicUser);
   }
   
   Future<Map<String, dynamic>> authorizeQrToken(String qrToken) async {
-    final prefs = await SharedPreferences.getInstance();
-    final userToken = prefs.getString('token');
-
-    if (userToken == null) {
+     if (_user?.token == null) {
       return {'success': false, 'message': 'Mobile user not logged in.'};
     }
 
-    final url = Uri.https(_baseUrl, '/api/tv/check-auth.php', {'token': qrToken});
+    final url = Uri.https(_baseUrl, '/api/tv/check-auth.php');
     try {
       final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $userToken',
         },
+        body: jsonEncode({
+          'qr_token': qrToken,
+          'user_token': _user!.token,
+        })
       );
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -135,5 +136,4 @@ class AuthService with ChangeNotifier {
       return {'success': false, 'message': 'An error occurred: $e'};
     }
   }
-
 }

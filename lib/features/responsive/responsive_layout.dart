@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:universal_io/io.dart';
 
 class ResponsiveLayout extends StatelessWidget {
   final Widget mobileBody;
@@ -13,17 +12,14 @@ class ResponsiveLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isDesktop = false;
-    try {
-      isDesktop = Platform.isLinux || Platform.isMacOS || Platform.isWindows;
-    } catch (e) {
-      isDesktop = false;
-    }
-
-    if (isDesktop) {
-      return desktopBody;
-    } else {
-      return mobileBody;
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 600) {
+          return mobileBody;
+        } else {
+          return desktopBody;
+        }
+      },
+    );
   }
 }

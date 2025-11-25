@@ -3,15 +3,15 @@ import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'features/login/desktop/desktop_login_screen.dart';
 import 'features/login/mobile/mobile_login_screen.dart';
-import 'features/responsive/responsive_layout.dart'; // Corrected import path
+import 'features/responsive/responsive_layout.dart';
 import 'home_screen.dart';
 
-void main() async { // Make main async
-  WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter is ready
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   final authService = AuthService();
-  await authService.tryAutoLogin(); // Wait for auto-login to complete
+  await authService.tryAutoLogin();
 
-  runApp(MyApp(authService: authService)); // Pass the service to the app
+  runApp(MyApp(authService: authService));
 }
 
 class MyApp extends StatelessWidget {
@@ -20,14 +20,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value( // Use .value constructor
+    return ChangeNotifierProvider.value(
       value: authService,
       child: MaterialApp(
         title: 'TVR Digital',
         theme: ThemeData(
             primarySwatch: Colors.deepPurple,
             visualDensity: VisualDensity.adaptivePlatformDensity,
-            fontFamily: 'FullAppFont', // Default font for the entire app
+            fontFamily: 'FullAppFont',
             appBarTheme: const AppBarTheme(
               titleTextStyle: TextStyle(fontFamily: 'AppBarFont', fontSize: 20),
             )),
@@ -48,7 +48,6 @@ class AuthWrapper extends StatelessWidget {
         if (authService.isLoggedIn) {
           return const HomeScreen();
         } else {
-          // The ResponsiveLayout will handle the platform detection
           return const ResponsiveLayout(
             desktopBody: DesktopLoginScreen(),
             mobileBody: MobileLoginScreen(),
