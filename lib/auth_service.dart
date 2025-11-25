@@ -6,11 +6,11 @@ import 'package:http/http.dart' as http;
 import './user_model.dart';
 
 class AuthService with ChangeNotifier {
-  User? _user;
+  UserModel? _user;
   bool _isLoading = false;
   String? _errorMessage;
 
-  User? get user => _user;
+  UserModel? get user => _user;
   bool get isAuthenticated => _user != null;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -35,24 +35,22 @@ class AuthService with ChangeNotifier {
       log('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        if (responseData['success'] == true) {
-          _user = User.fromJson(responseData);
+        final data = json.decode(response.body);
+        if (data['status'] == 'success') {
+          _user = UserModel.fromJson(data['user']);
           _isLoading = false;
           notifyListeners();
           return true;
         } else {
-          _errorMessage = responseData['message'] ?? 'Invalid username or password.';
+          _errorMessage = data['message'] ?? 'Unknown error';
         }
       } else {
         _errorMessage = 'Server error: ${response.statusCode}';
       }
     } catch (e) {
       _errorMessage = 'An error occurred: $e';
-      log('Login error: ', error: e);
-    } 
-    
-    _user = null;
+    }
+
     _isLoading = false;
     notifyListeners();
     return false;
