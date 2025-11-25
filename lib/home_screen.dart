@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'user_model.dart';
+import 'profile_screen.dart'; // Import the new profile screen
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,6 +38,18 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('მთავარი', style: TextStyle(fontFamily: 'AppBarFont')),
         actions: [
+          // Profile Button
+          IconButton(
+            icon: const Icon(Icons.person),
+            tooltip: 'პროფილი',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
+          // Logout Button
           IconButton(
             focusNode: _logoutButtonFocusNode,
             icon: const Icon(Icons.logout),
@@ -109,4 +122,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
