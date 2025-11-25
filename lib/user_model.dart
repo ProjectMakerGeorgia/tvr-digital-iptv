@@ -32,7 +32,7 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'],
+      id: int.parse(json['id'].toString()),
       username: json['username'],
       firstName: json['first_name'],
       lastName: json['last_name'],
@@ -41,10 +41,10 @@ class UserModel {
       playlistUrl: json['playlist_url'],
       token: json['token'],
       balance: double.parse(json['balance'].toString()),
-      userstatus: json['userstatus'],
+      userstatus: int.parse(json['userstatus'].toString()),
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
-      chatId: json['chat_id'],
+      chatId: json['chat_id'] != null ? int.parse(json['chat_id'].toString()) : null,
     );
   }
 }
