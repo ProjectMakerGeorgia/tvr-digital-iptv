@@ -9,8 +9,8 @@ workflows:
       - name: Get Flutter packages
         script: |
           flutter pub get
-      - name: Build Android App Bundle
+      - name: Build Android APK
         script: |
-          flutter build appbundle --release
+          flutter build apk --release
     artifacts:
-      - build/app/outputs/bundle/release/*.aab
+      - build/app/outputs/flutter-apk/*.apk
